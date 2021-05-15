@@ -19,14 +19,15 @@ service Wallet {
             get: "/v2/validator/wallet"
         };
     }
-    rpc GenerateMnemonic(google.protobuf.Empty) returns (GenerateMnemonicResponse) {
-        option (google.api.http) = {
-            get: "/v2/validator/mnemonic/generate"
-        };
-    }
     rpc ImportKeystores(ImportKeystoresRequest) returns (ImportKeystoresResponse) {
         option (google.api.http) = {
             post: "/v2/validator/wallet/keystores/import",
+            body: "*"
+        };
+    }
+    rpc ValidateKeystores(ValidateKeystoresRequest) returns (google.protobuf.Empty) {
+        option (google.api.http) = {
+            post: "/v2/validator/wallet/keystores/validate",
             body: "*"
         };
     }
@@ -50,7 +51,7 @@ service Accounts {
             body: "*"
         };
     }
-    rpc DeleteAccounts(DeleteAccountsRequest) returns (DeleteAccountsResponse) {
+    rpc DeleteAccounts(PublicKeysRequest) returns (DeleteAccountsResponse) {
         option (google.api.http) = {
             post: "/v2/validator/wallet/accounts/delete",
             body: "*"
@@ -62,7 +63,7 @@ service Accounts {
             body: "*"
         };
     }
-    rpc VoluntaryExit(VoluntaryExitRequest) returns (VoluntaryExitResponse) {
+    rpc VoluntaryExit(PublicKeysRequest) returns (VoluntaryExitResponse) {
         option (google.api.http) = {
             post: "/v2/validator/accounts/voluntary-exit",
             body: "*"
@@ -119,8 +120,7 @@ service Beacon {
 service SlashingProtection {
     rpc ExportSlashingProtection(google.protobuf.Empty) returns (ExportSlashingProtectionResponse) {
         option (google.api.http) = {
-            post: "/v2/validator/slashing-protection/export"
-            body: "*"
+            get: "/v2/validator/slashing-protection/export"
         };
     }
     rpc ImportSlashingProtection(ImportSlashingProtectionRequest) returns (google.protobuf.Empty) {
@@ -177,12 +177,6 @@ service Auth {
             body: "*"
         };
     }
-    rpc Logout(google.protobuf.Empty) returns (google.protobuf.Empty) {
-        option (google.api.http) = {
-            post: "/v2/validator/logout",
-            body: "*"
-        };
-    }
 }
 
 // Type of key manager for the wallet, either direct, derived, or remote.
@@ -215,17 +209,6 @@ message CreateWalletRequest {
 
 message CreateWalletResponse {
     WalletResponse wallet = 1;
-}
-
-message EditWalletConfigRequest {
-    string remote_addr = 1;
-    string remote_crt_path = 2;
-    string remote_key_path = 3;
-    string remote_ca_crt_path = 4;
-}
-
-message GenerateMnemonicResponse {
-    string mnemonic = 1;
 }
 
 message WalletResponse {
@@ -346,6 +329,14 @@ message ImportKeystoresResponse {
     repeated bytes imported_public_keys = 1;
 }
 
+message ValidateKeystoresRequest {
+    // JSON-encoded keystore files to validate.
+    repeated string keystores = 1;
+
+    // Password for the keystore files.
+    string keystores_password = 2;
+}
+
 message HasUsedWebResponse {
     bool has_signed_up = 1;
     bool has_wallet = 2;
@@ -371,8 +362,8 @@ message BeaconStatusResponse {
     ethereum.eth.v1alpha1.ChainHead chain_head = 6;
 }
 
-message VoluntaryExitRequest {
-    // List of public keys to voluntarily exit.
+message PublicKeysRequest {
+    // List of BLS public keys.
     repeated bytes public_keys = 1;
 }
 
@@ -391,11 +382,6 @@ message BackupAccountsRequest {
 message BackupAccountsResponse {
     // Zip file containing backed up keystores.
     bytes zip_file = 1;
-}
-
-message DeleteAccountsRequest {
-    // List of public keys to delete.
-    repeated bytes public_keys_to_delete = 1;
 }
 
 message DeleteAccountsResponse {

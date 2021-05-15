@@ -22,6 +22,7 @@ var (
 		"/ethereum.validator.accounts.v2.Auth/Logout":                      true,
 		"/ethereum.validator.accounts.v2.Auth/HasUsedWeb":                  true,
 		"/ethereum.validator.accounts.v2.Wallet/HasWallet":                 true,
+		"/ethereum.validator.accounts.v2.Wallet/WalletConfig":              true,
 		"/ethereum.validator.accounts.v2.Beacon/GetBeaconStatus":           true,
 		"/ethereum.validator.accounts.v2.Beacon/GetValidatorParticipation": true,
 		"/ethereum.validator.accounts.v2.Beacon/GetValidatorPerformance":   true,
@@ -29,7 +30,11 @@ var (
 		"/ethereum.validator.accounts.v2.Beacon/GetValidators":             true,
 		"/ethereum.validator.accounts.v2.Beacon/GetValidatorQueue":         true,
 		"/ethereum.validator.accounts.v2.Beacon/GetPeers":                  true,
-		"/ethereum.validator.accounts.v2.Beacon/StreamValidatorLogs":       true,
+		"/ethereum.validator.accounts.v2.Health/StreamBeaconLogs":          true,
+		"/ethereum.validator.accounts.v2.Health/StreamValidatorLogs":       true,
+		"/ethereum.validator.accounts.v2.Health/GetLogsEndpoints":          true,
+		"/ethereum.validator.accounts.v2.Health/GetVersion":                true,
+		"/ethereum.validator.accounts.v2.Accounts/ListAccounts":            true,
 	}
 	authLock sync.RWMutex
 )
