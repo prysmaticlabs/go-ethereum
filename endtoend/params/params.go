@@ -25,7 +25,9 @@ type params struct {
 	BeaconNodeRPCPort     int
 	BeaconNodeMetricsPort int
 	ValidatorMetricsPort  int
+	ValidatorMetricsHost  string
 	ValidatorGatewayPort  int
+	ValidatorGatewayHost  string
 	SlasherRPCPort        int
 	SlasherMetricsPort    int
 }
@@ -59,14 +61,15 @@ func Init(beaconNodeCount int) error {
 		return errors.New("expected TEST_UNDECLARED_OUTPUTS_DIR to be defined")
 	}
 	testIndexStr, ok := os.LookupEnv("TEST_SHARD_INDEX")
-	if !ok {
-		testIndexStr = "0"
+	var testIndex int
+	if ok {
+		var err error
+		testIndex, err = strconv.Atoi(testIndexStr)
+		if err != nil {
+			return err
+		}
+		testPath = filepath.Join(testPath, fmt.Sprintf("shard-%d", testIndex))
 	}
-	testIndex, err := strconv.Atoi(testIndexStr)
-	if err != nil {
-		return err
-	}
-	testPath = filepath.Join(testPath, fmt.Sprintf("shard-%d", testIndex))
 
 	TestParams = &params{
 		TestPath:              testPath,
@@ -83,4 +86,10 @@ func Init(beaconNodeCount int) error {
 		SlasherMetricsPort:    8100 + testIndex*100,
 	}
 	return nil
+}
+
+// SetHost address for validator and beacon chain
+func (tp *params) SetHost(h string) {
+	tp.ValidatorMetricsHost = h
+	tp.ValidatorGatewayHost = h
 }
