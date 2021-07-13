@@ -2,8 +2,11 @@ package kv
 
 import (
 	"context"
+	"encoding/binary"
+	"math/rand"
 	"reflect"
 	"testing"
+	"time"
 
 	types "github.com/prysmaticlabs/eth2-types"
 	iface "github.com/prysmaticlabs/prysm/beacon-chain/state/interface"
@@ -43,6 +46,49 @@ func TestState_CanSaveRetrieve(t *testing.T) {
 	savedS, err = db.State(context.Background(), [32]byte{'B'})
 	require.NoError(t, err)
 	assert.Equal(t, iface.ReadOnlyBeaconState(nil), savedS, "Unsaved state should've been nil")
+}
+
+func TestState_CanSaveRetrieveValidatorEntries(t *testing.T) {
+	db := setupDB(t)
+
+	r := [32]byte{'A'}
+
+	require.Equal(t, false, db.HasState(context.Background(), r))
+
+	st, err := testutil.NewBeaconState()
+	require.NoError(t, err)
+	require.NoError(t, st.SetSlot(100))
+	require.NoError(t, st.SetValidators(validators(10)))
+
+	require.NoError(t, db.SaveState(context.Background(), st, r))
+	assert.Equal(t, true, db.HasState(context.Background(), r))
+
+	savedS, err := db.State(context.Background(), r)
+	require.NoError(t, err)
+
+	require.DeepSSZEqual(t, st.InnerStateUnsafe(), savedS.InnerStateUnsafe(), "saved state with validators and retrieved state are not matching")
+}
+
+func TestState_CanSaveRetrieveValidatorEntriesWithoutCache(t *testing.T) {
+	db := setupDB(t)
+
+	r := [32]byte{'A'}
+
+	require.Equal(t, false, db.HasState(context.Background(), r))
+
+	st, err := testutil.NewBeaconState()
+	require.NoError(t, err)
+	require.NoError(t, st.SetSlot(100))
+	require.NoError(t, st.SetValidators(validators(10)))
+
+	require.NoError(t, db.SaveState(context.Background(), st, r))
+	assert.Equal(t, true, db.HasState(context.Background(), r))
+	db.validatorEntryCache.Clear()
+
+	savedS, err := db.State(context.Background(), r)
+	require.NoError(t, err)
+
+	require.DeepSSZEqual(t, st.InnerStateUnsafe(), savedS.InnerStateUnsafe(), "saved state with validators and retrieved state are not matching")
 }
 
 func TestGenesisState_CanSaveRetrieve(t *testing.T) {
@@ -342,3 +388,109 @@ func TestStore_CleanUpDirtyStates_DontDeleteNonFinalized(t *testing.T) {
 		require.Equal(t, true, db.HasState(context.Background(), rt))
 	}
 }
+
+func validators(limit int) []*ethpb.Validator {
+	var vals []*ethpb.Validator
+	for i := 0; i < limit; i++ {
+		pubKey := make([]byte, params.BeaconConfig().BLSPubkeyLength)
+		binary.LittleEndian.PutUint64(pubKey, rand.Uint64())
+		val := &ethpb.Validator{
+			PublicKey:                  pubKey,
+			WithdrawalCredentials:      bytesutil.ToBytes(rand.Uint64(), 32),
+			EffectiveBalance:           uint64(rand.Uint64()),
+			Slashed:                    i%2 != 0,
+			ActivationEligibilityEpoch: types.Epoch(rand.Uint64()),
+			ActivationEpoch:            types.Epoch(rand.Uint64()),
+			ExitEpoch:                  types.Epoch(rand.Uint64()),
+			WithdrawableEpoch:          types.Epoch(rand.Uint64()),
+		}
+		vals = append(vals, val)
+	}
+	return vals
+}
+
+func checkStateSaveTime(b *testing.B, saveCount int) {
+	b.StopTimer()
+
+	db := setupDB(b)
+	initialSetOfValidators := validators(100000)
+
+	// construct some states and save to randomize benchmark.
+	for i := 0; i < saveCount; i++ {
+		key := make([]byte, 32)
+		_, err := rand.Read(key)
+		require.NoError(b, err)
+		st, err := testutil.NewBeaconState()
+		require.NoError(b, err)
+
+		// Add some more new validator to the base validator.
+		validatosToAddInTest := validators(10000)
+		allValidators := append(initialSetOfValidators, validatosToAddInTest...)
+
+		// shuffle validators.
+		rand.Seed(time.Now().UnixNano())
+		rand.Shuffle(len(allValidators), func(i, j int) { allValidators[i], allValidators[j] = allValidators[j], allValidators[i] })
+
+		require.NoError(b, st.SetValidators(allValidators))
+		require.NoError(b, db.SaveState(context.Background(), st, bytesutil.ToBytes32(key)))
+	}
+
+	// create a state to save in benchmark
+	r := [32]byte{'A'}
+	st, err := testutil.NewBeaconState()
+	require.NoError(b, err)
+	require.NoError(b, st.SetValidators(initialSetOfValidators))
+
+	b.ReportAllocs()
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		require.NoError(b, db.SaveState(context.Background(), st, r))
+	}
+}
+
+func checkStateReadTime(b *testing.B, saveCount int) {
+	b.StopTimer()
+
+	db := setupDB(b)
+	initialSetOfValidators := validators(100000)
+
+	// Save a state to read in benchmark
+	r := [32]byte{'A'}
+	st, err := testutil.NewBeaconState()
+	require.NoError(b, err)
+	require.NoError(b, st.SetValidators(initialSetOfValidators))
+	require.NoError(b, db.SaveState(context.Background(), st, r))
+
+	// construct some states and save to randomize benchmark.
+	for i := 0; i < saveCount; i++ {
+		key := make([]byte, 32)
+		_, err := rand.Read(key)
+		require.NoError(b, err)
+		st, err = testutil.NewBeaconState()
+		require.NoError(b, err)
+
+		// Add some more new validator to the base validator.
+		validatosToAddInTest := validators(10000)
+		allValidators := append(initialSetOfValidators, validatosToAddInTest...)
+
+		// shuffle validators.
+		rand.Seed(time.Now().UnixNano())
+		rand.Shuffle(len(allValidators), func(i, j int) { allValidators[i], allValidators[j] = allValidators[j], allValidators[i] })
+
+		require.NoError(b, st.SetValidators(allValidators))
+		require.NoError(b, db.SaveState(context.Background(), st, bytesutil.ToBytes32(key)))
+	}
+
+	b.ReportAllocs()
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		_, err := db.State(context.Background(), r)
+		require.NoError(b, err)
+	}
+}
+
+func BenchmarkState_CheckStateSaveTime_1(b *testing.B)  { checkStateSaveTime(b, 1) }
+func BenchmarkState_CheckStateSaveTime_10(b *testing.B) { checkStateSaveTime(b, 10) }
+
+func BenchmarkState_CheckStateReadTime_1(b *testing.B)  { checkStateReadTime(b, 1) }
+func BenchmarkState_CheckStateReadTime_10(b *testing.B) { checkStateReadTime(b, 10) }
