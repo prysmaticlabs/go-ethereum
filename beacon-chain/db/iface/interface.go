@@ -129,6 +129,9 @@ type SlasherDatabase interface {
 	AttestationRecordForValidator(
 		ctx context.Context, validatorIdx types.ValidatorIndex, targetEpoch types.Epoch,
 	) (*slashertypes.IndexedAttestationWrapper, error)
+	BlockProposalForValidator(
+		ctx context.Context, validatorIdx types.ValidatorIndex, slot types.Slot,
+	) (*slashertypes.SignedBlockHeaderWrapper, error)
 	CheckAttesterDoubleVotes(
 		ctx context.Context, attestations []*slashertypes.IndexedAttestationWrapper,
 	) ([]*slashertypes.AttesterDoubleVote, error)
@@ -138,12 +141,12 @@ type SlasherDatabase interface {
 	CheckDoubleBlockProposals(
 		ctx context.Context, proposals []*slashertypes.SignedBlockHeaderWrapper,
 	) ([]*eth.ProposerSlashing, error)
-	PruneAttestations(
-		ctx context.Context, currentEpoch, pruningEpochIncrements, historyLength types.Epoch,
-	) error
-	PruneProposals(
-		ctx context.Context, currentEpoch, pruningEpochIncrements, historyLength types.Epoch,
-	) error
+	PruneAttestationsAtEpoch(
+		ctx context.Context, minEpoch types.Epoch,
+	) (uint, error)
+	PruneProposalsAtEpoch(
+		ctx context.Context, minEpoch types.Epoch,
+	) (uint, error)
 	DatabasePath() string
 	ClearDB() error
 }

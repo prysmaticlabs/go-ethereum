@@ -28,12 +28,14 @@ import (
 	"github.com/prysmaticlabs/prysm/beacon-chain/rpc/eth/v1/beacon"
 	"github.com/prysmaticlabs/prysm/beacon-chain/rpc/eth/v1/debug"
 	"github.com/prysmaticlabs/prysm/beacon-chain/rpc/eth/v1/events"
-	node "github.com/prysmaticlabs/prysm/beacon-chain/rpc/eth/v1/node"
+	"github.com/prysmaticlabs/prysm/beacon-chain/rpc/eth/v1/node"
 	beaconv1alpha1 "github.com/prysmaticlabs/prysm/beacon-chain/rpc/prysm/v1alpha1/beacon"
 	debugv1alpha1 "github.com/prysmaticlabs/prysm/beacon-chain/rpc/prysm/v1alpha1/debug"
 	nodev1alpha1 "github.com/prysmaticlabs/prysm/beacon-chain/rpc/prysm/v1alpha1/node"
 	validatorv1alpha1 "github.com/prysmaticlabs/prysm/beacon-chain/rpc/prysm/v1alpha1/validator"
+	"github.com/prysmaticlabs/prysm/beacon-chain/rpc/slasher"
 	"github.com/prysmaticlabs/prysm/beacon-chain/rpc/statefetcher"
+	slasherservice "github.com/prysmaticlabs/prysm/beacon-chain/slasher"
 	"github.com/prysmaticlabs/prysm/beacon-chain/state/stategen"
 	chainSync "github.com/prysmaticlabs/prysm/beacon-chain/sync"
 	pbp2p "github.com/prysmaticlabs/prysm/proto/beacon/p2p/v1"
@@ -93,6 +95,7 @@ type Config struct {
 	AttestationsPool        attestations.Pool
 	ExitPool                voluntaryexits.PoolManager
 	SlashingsPool           slashings.PoolManager
+	SlashingChecker         slasherservice.SlashingChecker
 	SyncService             chainSync.Checker
 	Broadcaster             p2p.Broadcaster
 	PeersFetcher            p2p.PeersProvider
@@ -216,6 +219,10 @@ func (s *Service) Start() {
 		HeadFetcher:        s.cfg.HeadFetcher,
 	}
 
+	slasherServer := &slasher.Server{
+		SlashingChecker: s.cfg.SlashingChecker,
+	}
+
 	beaconChainServer := &beaconv1alpha1.Server{
 		Ctx:                         s.ctx,
 		BeaconDB:                    s.cfg.BeaconDB,
@@ -259,6 +266,7 @@ func (s *Service) Start() {
 	ethpbv1alpha1.RegisterNodeServer(s.grpcServer, nodeServer)
 	ethpbv1.RegisterBeaconNodeServer(s.grpcServer, nodeServerV1)
 	pbrpc.RegisterHealthServer(s.grpcServer, nodeServer)
+	pbrpc.RegisterSlasherServer(s.grpcServer, slasherServer)
 	ethpbv1alpha1.RegisterBeaconChainServer(s.grpcServer, beaconChainServer)
 	ethpbv1.RegisterBeaconChainServer(s.grpcServer, beaconChainServerV1)
 	ethpbv1.RegisterEventsServer(s.grpcServer, &events.Server{

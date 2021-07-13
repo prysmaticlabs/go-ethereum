@@ -43,7 +43,12 @@ var (
 	enableExternalSlasherProtectionFlag = &cli.BoolFlag{
 		Name: "enable-external-slasher-protection",
 		Usage: "Enables the validator to connect to external slasher to prevent it from " +
-			"transmitting a slashable offence over the network.",
+			"transmitting a slashable offense over the network, will be deprecated soon",
+	}
+	enableNewExternalSlasherProtectionFlag = &cli.BoolFlag{
+		Name: "enable-new-external-slasher-protection",
+		Usage: "Enables the validator to connect to a beacon node using the --slasher flag" +
+			"for remote slashing protection",
 	}
 	disableLookbackFlag = &cli.BoolFlag{
 		Name:  "disable-lookback",
@@ -109,6 +114,10 @@ var (
 	updateHeadTimely = &cli.BoolFlag{
 		Name:  "update-head-timely",
 		Usage: "Improves update head time by updating head right after state transition",
+	}
+	enableSlasherFlag = &cli.BoolFlag{
+		Name:  "slasher",
+		Usage: "Enables a slasher in the beacon node for detecting slashable offenses on eth2",
 	}
 	disableProposerAttsSelectionUsingMaxCover = &cli.BoolFlag{
 		Name:  "disable-proposer-atts-selection-using-max-cover",
@@ -187,6 +196,7 @@ var BeaconChainFlags = append(deprecatedFlags, []cli.Flag{
 	enableNextSlotStateCache,
 	forceOptMaxCoverAggregationStategy,
 	updateHeadTimely,
+	enableSlasherFlag,
 	disableProposerAttsSelectionUsingMaxCover,
 	enableOptimizedBalanceUpdate,
 }...)

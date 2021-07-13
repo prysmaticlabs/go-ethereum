@@ -32,6 +32,7 @@ import (
 	"github.com/prysmaticlabs/prysm/proto/interfaces"
 	"github.com/prysmaticlabs/prysm/shared/bytesutil"
 	"github.com/prysmaticlabs/prysm/shared/copyutil"
+	"github.com/prysmaticlabs/prysm/shared/event"
 	"github.com/prysmaticlabs/prysm/shared/params"
 	"github.com/prysmaticlabs/prysm/shared/slotutil"
 	"github.com/sirupsen/logrus"
@@ -82,6 +83,7 @@ type Config struct {
 	ForkChoiceStore         f.ForkChoicer
 	AttService              *attestations.Service
 	StateGen                *stategen.State
+	SlasherAttestationsFeed *event.Feed
 	WeakSubjectivityCheckpt *ethpb.Checkpoint
 }
 

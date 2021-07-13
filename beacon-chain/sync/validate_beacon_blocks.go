@@ -17,7 +17,9 @@ import (
 	ethpb "github.com/prysmaticlabs/prysm/proto/eth/v1alpha1"
 	"github.com/prysmaticlabs/prysm/proto/eth/v1alpha1/wrapper"
 	"github.com/prysmaticlabs/prysm/proto/interfaces"
+	"github.com/prysmaticlabs/prysm/shared/blockutil"
 	"github.com/prysmaticlabs/prysm/shared/bytesutil"
+	"github.com/prysmaticlabs/prysm/shared/featureconfig"
 	"github.com/prysmaticlabs/prysm/shared/params"
 	"github.com/prysmaticlabs/prysm/shared/timeutils"
 	"github.com/prysmaticlabs/prysm/shared/traceutil"
@@ -74,6 +76,18 @@ func (s *Service) validateBeaconBlockPubSub(ctx context.Context, pid peer.ID, ms
 			SignedBlock: blk,
 		},
 	})
+
+	if featureconfig.Get().EnableSlasher {
+		// Feed the block header to slasher if enabled. This action
+		// is done in the background to avoid adding more load to this critical code path.
+		go func() {
+			blockHeader, err := blockutil.SignedBeaconBlockHeaderFromBlock(rblk)
+			if err != nil {
+				log.WithError(err).WithField("blockSlot", blk.Block().Slot()).Warn("Could not extract block header")
+			}
+			s.cfg.SlasherBlockHeadersFeed.Send(blockHeader)
+		}()
+	}
 
 	// Verify the block is the first block received for the proposer for the slot.
 	if s.hasSeenBlockIndexSlot(blk.Block().Slot(), blk.Block().ProposerIndex()) {
@@ -160,6 +174,7 @@ func (s *Service) validateBeaconBlockPubSub(ctx context.Context, pid peer.ID, ms
 		log.WithError(err).WithField("blockSlot", blk.Block().Slot()).Warn("Rejected block")
 		return pubsub.ValidationReject
 	}
+
 	// Record attribute of valid block.
 	span.AddAttributes(trace.Int64Attribute("slotInEpoch", int64(blk.Block().Slot()%params.BeaconConfig().SlotsPerEpoch)))
 	msg.ValidatorData = rblk // Used in downstream subscriber
